@@ -1,4 +1,4 @@
-# Ensure 'pdftotext.exe' is available in your PATH or specify the full path here
+# Ensure 'pdftotext.exe' is available in your PATH or specify full path here
 $pdftotextPath = "pdftotext.exe"
 
 # Get all PDF files in the script's current directory
@@ -14,13 +14,13 @@ foreach ($pdfFile in $pdfFiles) {
     # Read extracted content line-by-line
     $lines = Get-Content $tempTxt
 
-    # Initialize variable to store Bill To name
+    # Initialize Bill To name
     $billToName = $null
 
-    # Find the line with 'Bill to' exactly and take the next non-empty line
+    # Improved search for the line containing 'Bill to' (allowing whitespace variations)
     for ($i = 0; $i -lt $lines.Length; $i++) {
-        if ($lines[$i].Trim() -eq "Bill to") {
-            # Find the next non-empty line as the company name
+        if ($lines[$i] -match '^\s*Bill\s+to\s*$') {
+            # Next non-empty line is the name
             for ($j = $i + 1; $j -lt $lines.Length; $j++) {
                 $nextLine = $lines[$j].Trim()
                 if ($nextLine -ne "") {
@@ -33,21 +33,14 @@ foreach ($pdfFile in $pdfFiles) {
     }
 
     if ($billToName) {
-        # Clean up billToName (remove invalid filename chars)
+        # Clean up name (remove invalid filename chars)
         $cleanName = ($billToName -replace '[\\/:*?"<>|]', '').Trim()
 
-        # Generate new filename safely
+        # Construct new filename safely
         $newFileName = "$cleanName 2025 calendar ad invoice.pdf"
-
-        # Ensure the filename isn't excessively long
-        if ($newFileName.Length -gt 200) {
-            $newFileName = $newFileName.Substring(0, 200) + ".pdf"
-        }
-
-        # Build full destination path explicitly
         $destPath = Join-Path -Path $pdfFile.DirectoryName -ChildPath $newFileName
 
-        # Check if the file already exists
+        # Avoid conflicts
         if (-not (Test-Path $destPath)) {
             try {
                 Rename-Item -Path $pdfFile.FullName -NewName $newFileName -Verbose -ErrorAction Stop
@@ -61,6 +54,6 @@ foreach ($pdfFile in $pdfFiles) {
         Write-Warning "Could not find 'Bill to' in file '$($pdfFile.Name)'. Skipping file."
     }
 
-    # Clean up temporary file
+    # Cleanup temporary file
     Remove-Item $tempTxt -Force
 }

@@ -14,8 +14,8 @@ foreach ($pdfFile in $pdfFiles) {
     # Read extracted content as a single string
     $content = Get-Content $tempTxt -Raw
 
-    # More robust method: find "Bill to" and capture next meaningful line
-    if ($content -match "Bill to\s*(?:\r?\n)+\s*(.+)") {
+    # Robust regex method: finds "Bill to" and captures the next meaningful line even if Bill to is not alone on line
+    if ($content -match "Bill to.*?(?:\r?\n|\r|\n)\s*(.+)") {
         $billToName = $matches[1].Trim()
 
         # Clean name from invalid filename characters

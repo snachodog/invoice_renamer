@@ -1,4 +1,4 @@
-# Ensure 'pdftotext.exe' is available in your PATH or specify full path here
+# Ensure 'pdftotext.exe' is available in your PATH or specify the full path here
 $pdftotextPath = "pdftotext.exe"
 
 # Get all PDF files in the script's current directory
@@ -11,41 +11,53 @@ foreach ($pdfFile in $pdfFiles) {
     # Extract text content from PDF
     & $pdftotextPath -layout $pdfFile.FullName $tempTxt
 
-    # Read extracted content
-    $content = Get-Content $tempTxt
+    # Read extracted content line-by-line
+    $lines = Get-Content $tempTxt
 
-    # Initialize variables
+    # Initialize variable to store Bill To name
     $billToName = $null
-    $foundBillTo = $false
 
-    # Search line-by-line for the correct 'Bill to' line
-    for ($i = 0; $i -lt $content.Length; $i++) {
-        if ($content[$i] -match "Bill to\s*$") {
-            # Find the next non-empty line after "Bill to"
-            for ($j = $i + 1; $j -lt $content.Length; $j++) {
-                if ($content[$j].Trim()) {
-                    $billToName = $content[$j].Trim()
+    # Find the line with 'Bill to' exactly and take the next non-empty line
+    for ($i = 0; $i -lt $lines.Length; $i++) {
+        if ($lines[$i].Trim() -eq "Bill to") {
+            # Find the next non-empty line as the company name
+            for ($j = $i + 1; $j -lt $lines.Length; $j++) {
+                $nextLine = $lines[$j].Trim()
+                if ($nextLine -ne "") {
+                    $billToName = $nextLine
                     break
                 }
             }
-            if ($billToName) { break }
+            break
         }
     }
 
     if ($billToName) {
-        # Generate new filename
-        $newFileName = "$billToName 2025 calendar ad invoice.pdf"
+        # Clean up billToName (remove invalid filename chars)
+        $cleanName = ($billToName -replace '[\\/:*?"<>|]', '').Trim()
 
-        # Check if the target file already exists
-        if (-not (Test-Path "$($pdfFile.DirectoryName)\$newFileName")) {
-            # Rename file
-            Rename-Item -Path $pdfFile.FullName -NewName $newFileName -Verbose
+        # Generate new filename safely
+        $newFileName = "$cleanName 2025 calendar ad invoice.pdf"
+
+        # Ensure the filename isn't excessively long
+        if ($newFileName.Length -gt 200) {
+            $newFileName = $newFileName.Substring(0, 200) + ".pdf"
         }
-        else {
+
+        # Build full destination path explicitly
+        $destPath = Join-Path -Path $pdfFile.DirectoryName -ChildPath $newFileName
+
+        # Check if the file already exists
+        if (-not (Test-Path $destPath)) {
+            try {
+                Rename-Item -Path $pdfFile.FullName -NewName $newFileName -Verbose -ErrorAction Stop
+            } catch {
+                Write-Warning "Error renaming '$($pdfFile.Name)': $_"
+            }
+        } else {
             Write-Warning "File '$newFileName' already exists. Skipping rename."
         }
-    }
-    else {
+    } else {
         Write-Warning "Could not find 'Bill to' in file '$($pdfFile.Name)'. Skipping file."
     }
 

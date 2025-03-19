@@ -11,27 +11,13 @@ foreach ($pdfFile in $pdfFiles) {
     # Extract text content from PDF
     & $pdftotextPath -layout $pdfFile.FullName $tempTxt
 
-    # Read extracted content line-by-line
-    $lines = Get-Content $tempTxt
+    # Read extracted content as a single string
+    $content = Get-Content $tempTxt -Raw
 
-    # Initialize Bill To name
-    $billToName = $null
+    # More robust method: find "Bill to" and capture next meaningful line
+    if ($content -match "Bill to\s*(?:\r?\n)+\s*(.+)") {
+        $billToName = $matches[1].Trim()
 
-    # More robust method: look for "Bill to" line and grab the next meaningful line
-    for ($i = 0; $i -lt $lines.Length; $i++) {
-        if ($lines[$i].Trim() -match '^Bill\s+to$') {
-            for ($j = $i + 1; $j -lt $lines.Length; $j++) {
-                $nextLine = $lines[$j].Trim()
-                if (![string]::IsNullOrWhiteSpace($nextLine)) {
-                    $billToName = $nextLine
-                    break
-                }
-            }
-            break
-        }
-    }
-
-    if ($billToName) {
         # Clean name from invalid filename characters
         $cleanName = ($billToName -replace '[\\/:*?"<>|]', '').Trim()
 
